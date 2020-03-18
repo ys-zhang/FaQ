@@ -28,7 +28,7 @@ namespace api
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddDbContext<FAQChatBotDBContext>(opt => opt.UseSqlServer(Configuration.GetConnectionString("Debug")));
+            services.AddDbContext<FaqChatBotDbContext>(opt => opt.UseSqlServer(Configuration.GetConnectionString("Debug")));
             services.AddCors(options =>
             {
                 options.AddPolicy("Debug",
