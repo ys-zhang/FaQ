@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Models;
+using api.Controllers.Params;
 
 namespace api.Controllers
 {
@@ -122,10 +123,10 @@ namespace api.Controllers
         // POST: api/QuestionTopics
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see https://aka.ms/RazorPagesCRUD.
-        [HttpPost("{id}")]
-        public async Task<ActionResult<QuestionTopic>> PostQuestionTopic(int id, QuestionTopic questionTopic)
+        [HttpPost]
+        public async Task<ActionResult<QuestionTopic>> PostQuestionTopic( QuestionTopic questionTopic)
         {
-            if (id != questionTopic.Id)
+            if (QuestionTopicExists(questionTopic.Id))
             {
                 return BadRequest();
             }
@@ -147,7 +148,6 @@ namespace api.Controllers
 
             _context.QuestionTopics.Remove(questionTopic);
             await _context.SaveChangesAsync();
-
             return questionTopic;
         }
 

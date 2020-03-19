@@ -26,6 +26,6 @@ namespace api.Models
         public bool Active { get; set; } = false;
         public bool Deleted { get; set; } = false;
         public DateTime updateTime { get; set; }
-        public QuestionTopic questionTopic { get; set; }
+        public QuestionTopic QuestionTopic { get; set; }
     }
 }

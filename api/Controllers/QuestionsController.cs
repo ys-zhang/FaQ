@@ -6,11 +6,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Models;
+using Microsoft.AspNetCore.Cors;
+using api.Controllers.Params;
 
 namespace api.Controllers
 {
     [Route("faq/[controller]")]
     [ApiController]
+    [EnableCors("Debug")]
     public class QuestionsController : ControllerBase
     {
         private readonly FaqChatBotDbContext _context;
@@ -65,9 +68,10 @@ namespace api.Controllers
 
             Response.Headers.Add("Content-Range",
                 rangeParam != null
-                    ? $"QuestionTopics {rangeParam.Start}-{rangeParam.Start + count - 1}/{totalEntryCount}"
-                    : $"QuestionTopics {totalEntryCount}/{totalEntryCount}");
+                    ? $"Questions {rangeParam.Start}-{rangeParam.Start + count - 1}/{totalEntryCount}"
+                    : $"Questions {totalEntryCount}/{totalEntryCount}");
             Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
+            // Response.Headers.Add("Access-Control-Allow-Origin", "*");
             return topicList;
         }
 
@@ -120,10 +124,14 @@ namespace api.Controllers
         // POST: api/Questions
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see https://aka.ms/RazorPagesCRUD.
-        [HttpPost("{id}")]
-        public async Task<ActionResult<Question>> PostQuestion(int id, Question question)
+        [HttpPost]
+        public async Task<ActionResult<Question>> PostQuestion(Question question)
         {
-            question.Id = id;
+            // TODO
+            //if (question.Id != 0 && QuestionExists(question.Id))
+            //{
+            //    return BadRequest();
+            //}
             _context.Questions.Add(question);
             await _context.SaveChangesAsync();
 

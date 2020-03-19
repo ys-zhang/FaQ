@@ -13,6 +13,9 @@ namespace api.Models
     {
         public DbSet<Question> Questions { get; set; }
         public DbSet<QuestionTopic> QuestionTopics { get; set; }
+        public DbSet<ChatAgent> ChatAgents { get; set; }
+        public DbSet<StaticChatBotMessage> StaticChatBotMessages { get; set; }
+        public DbSet<MessageContent> MessageContents { get; set; }
 
         public FaqChatBotDbContext(DbContextOptions<FaqChatBotDbContext> options) : base(options) { }
 
@@ -20,6 +23,22 @@ namespace api.Models
         {
             modelBuilder.Entity<Question>().Property(q => q.updateTime).HasDefaultValueSql("GetDate()");
             modelBuilder.Entity<QuestionTopic>().Property(t => t.updateTime).HasDefaultValueSql("GetDate()");
+            modelBuilder.Entity<ChatAgent>().Property(agent => agent.Type)
+                .HasConversion<string>(v => v.ToString(), s => Enum.Parse<ChatAgentType>(s));
+            modelBuilder.Entity<QuestionTopic>().Property(topic => topic.Icon)
+                .HasConversion<string>(v => v.ToString(), s => TitledImage.Parse(s));
+            
+            modelBuilder.Entity<StaticChatBotMessage>().Property(message => message.AnswerType)
+                .HasConversion<string>(v => v.ToString(), s => Enum.Parse<AnswerType>(s));
+
+            modelBuilder.Entity<StaticChatBotMessageAndContentRelation>()
+                .HasKey(r => new {r.StaticChatBotMessageId, r.MessageContentId});
+            modelBuilder.Entity<StaticChatBotMessageAndContentRelation>()
+                .HasOne(r => r.StaticChatBotMessage)
+                .WithMany(message => message.Relations);
+            modelBuilder.Entity<StaticChatBotMessageAndContentRelation>()
+                .HasOne(r => r.MessageContent)
+                .WithMany(content => content.Relations);
         }
         
         public int CountByRawSql(string sql, params KeyValuePair<string, object>[] parameters)
@@ -46,7 +65,10 @@ namespace api.Models
             }
 
             // We should have better error handling here
-            catch (System.Exception e) { }
+            catch (System.Exception e)
+            {
+                throw e;
+            }
 
             finally { connection.Close(); }
 
