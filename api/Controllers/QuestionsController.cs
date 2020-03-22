@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using api.Models;
 using Microsoft.AspNetCore.Cors;
 using api.Controllers.Params;
+using System.Data.SqlClient;
 
 namespace api.Controllers
 {
@@ -31,57 +32,26 @@ namespace api.Controllers
             var sortParam = SortParam.ParseParam(sort) ;
             var rangeParam = RangeParam.ParseParam(range);
             var filterParam = FilterParam.ParseParam(filter);
-            var query = "SELECT * FROM Questions WHERE Deleted = 0";
-            var countQuery = "SELECT count(*) FROM Questions WHERE Deleted = 0";
-            if (filterParam != null)
-            {
-                if (filterParam.Values.Count == 1)
-                {
-                    query += $" AND {filterParam.Column} = {filterParam.Values[0]} "; 
-                    countQuery += $" AND {filterParam.Column} = {filterParam.Values[0]} ";
-                } else
-                {
-                    query += $" AND {filterParam.Column} in ({string.Join(',', filterParam.Values)})";
-                    countQuery += $" AND {filterParam.Column} in ({string.Join(',', filterParam.Values)})";
-                }
-            }
-            if (sortParam != null)
-            {
-                query += $" ORDER BY {sortParam.Column} " + (sortParam.Desc ? "DESC " : " ");   
-            }
-
-            var totalEntryCount = _context.CountByRawSql(countQuery);
-            
-            if (rangeParam != null)
-            {
-                query += $" OFFSET {rangeParam.Start} ROWS FETCH NEXT {rangeParam.End - rangeParam.Start + 1} ROWS ONLY;";
-                
-            }
-            else
-            {
-                query += ";";
-                
-            }
-            
-            var topicList = await _context.Questions.FromSqlRaw(query).AsNoTracking().ToListAsync();
+            var query = _context.Questions.Where(q => !q.Deleted).AsQueryable();
+            query = query.Filter(filterParam);
+            var totalEntryCount = await query.CountAsync();
+            var topicList = await query.OrderBy(sortParam).Range(rangeParam).AsNoTracking().ToListAsync();
             var count = topicList.Count;
-
             Response.Headers.Add("Content-Range",
                 rangeParam != null
                     ? $"Questions {rangeParam.Start}-{rangeParam.Start + count - 1}/{totalEntryCount}"
                     : $"Questions {totalEntryCount}/{totalEntryCount}");
             Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
-            // Response.Headers.Add("Access-Control-Allow-Origin", "*");
             return topicList;
         }
-
+        
         // GET: api/Questions/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Question>> GetQuestion(int id)
         {
             var question = await _context.Questions.FindAsync(id);
 
-            if (question == null)
+            if (question == null || question.Deleted)
             {
                 return NotFound();
             }
@@ -112,10 +82,7 @@ namespace api.Controllers
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
 
             return NoContent();
@@ -143,14 +110,12 @@ namespace api.Controllers
         public async Task<ActionResult<Question>> DeleteQuestion(int id)
         {
             var question = await _context.Questions.FindAsync(id);
-            if (question == null)
+            if (question == null || question.Deleted)
             {
                 return NotFound();
             }
-
-            _context.Questions.Remove(question);
+            question.Deleted = true;
             await _context.SaveChangesAsync();
-
             return question;
         }
 
@@ -164,7 +129,7 @@ namespace api.Controllers
 
         private bool QuestionExists(int id)
         {
-            return _context.Questions.Any(e => e.Id == id);
+            return _context.Questions.Any(e => e.Id == id && !e.Deleted);
         }
     }
 }

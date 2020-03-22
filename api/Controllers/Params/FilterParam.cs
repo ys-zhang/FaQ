@@ -21,11 +21,11 @@ namespace api.Controllers.Params
                 JTokenType.String => new List<string> {json.Value.Value<string>()},
                 _ => throw new ArgumentException(queryParam)
             };
-            for (int i = 0; i < values.Count; i++)
-            {
-                if (values[i].ToLower() == "true") values[i] = "1";
-                if (values[i].ToLower() == "false") values[i] = "1";
-            }
+            // for (int i = 0; i < values.Count; i++)
+            // {
+            //     if (values[i].ToLower() == "true") values[i] = "1";
+            //     if (values[i].ToLower() == "false") values[i] = "1";
+            // }
             
             return new FilterParam { Column = col, Values = values };
         }

@@ -29,41 +29,13 @@ namespace api.Controllers
             var sortParam = SortParam.ParseParam(sort) ;
             var rangeParam = RangeParam.ParseParam(range);
             var filterParam = FilterParam.ParseParam(filter);
-            var query = "SELECT * FROM QuestionTopics WHERE Deleted = 0";
-            var countQuery = "SELECT count(*) FROM QuestionTopics WHERE Deleted = 0";
-            if (filterParam != null)
-            {
-                if (filterParam.Values.Count == 1)
-                {
-                    query += $" AND {filterParam.Column} = {filterParam.Values[0]} "; 
-                    countQuery += $" AND {filterParam.Column} = {filterParam.Values[0]} ";
-                } else
-                {
-                    query += $" AND {filterParam.Column} in ({string.Join(',', filterParam.Values)})";
-                    countQuery += $" AND {filterParam.Column} in ({string.Join(',', filterParam.Values)})";
-                }
-            }
-            if (sortParam != null)
-            {
-                query += $" ORDER BY {sortParam.Column} " + (sortParam.Desc ? "DESC " : " ");   
-            }
-
-            var totalEntryCount = _context.CountByRawSql(countQuery);
-            
-            if (rangeParam != null)
-            {
-                query += $" OFFSET {rangeParam.Start} ROWS FETCH NEXT {rangeParam.End - rangeParam.Start + 1} ROWS ONLY;";
-                
-            }
-            else
-            {
-                query += ";";
-                
-            }
-            
-            var topicList = await _context.QuestionTopics.FromSqlRaw(query).AsNoTracking().ToListAsync();
+            var query = _context.QuestionTopics
+                .Where(t => !t.Deleted)
+                .Filter(filterParam);
+            var totalEntryCount = await query.CountAsync();
+            query = query.OrderBy(sortParam).Range(rangeParam);
+            var topicList = await query.AsNoTracking().ToListAsync();
             var count = topicList.Count;
-
             Response.Headers.Add("Content-Range",
                 rangeParam != null
                     ? $"QuestionTopics {rangeParam.Start}-{rangeParam.Start + count - 1}/{totalEntryCount}"
@@ -80,7 +52,7 @@ namespace api.Controllers
         {
             var questionTopic = await _context.QuestionTopics.FindAsync(id);
 
-            if (questionTopic == null)
+            if (questionTopic == null || questionTopic.Deleted)
             {
                 return NotFound();
             }
@@ -111,10 +83,8 @@ namespace api.Controllers
                 {
                     return NotFound();
                 }
-                else
-                {
-                    throw;
-                }
+
+                throw;
             }
 
             return NoContent();
@@ -141,12 +111,11 @@ namespace api.Controllers
         public async Task<ActionResult<QuestionTopic>> DeleteQuestionTopic(int id)
         {
             var questionTopic = await _context.QuestionTopics.FindAsync(id);
-            if (questionTopic == null)
+            if (questionTopic == null || questionTopic.Deleted)
             {
                 return NotFound();
             }
-
-            _context.QuestionTopics.Remove(questionTopic);
+            questionTopic.Deleted = true;
             await _context.SaveChangesAsync();
             return questionTopic;
         }
@@ -170,10 +139,7 @@ namespace api.Controllers
         private bool QuestionTopicExists(int id)
         {
             var topic = _context.QuestionTopics.Find(id);
-            if (topic == null || topic.Deleted) {
-                return false;
-            }
-            return true;
+            return topic != null && !topic.Deleted;
         }
     }
 }
