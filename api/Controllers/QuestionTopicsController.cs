@@ -36,11 +36,7 @@ namespace api.Controllers
             query = query.OrderBy(sortParam).Range(rangeParam);
             var topicList = await query.AsNoTracking().ToListAsync();
             var count = topicList.Count;
-            Response.Headers.Add("Content-Range",
-                rangeParam != null
-                    ? $"QuestionTopics {rangeParam.Start}-{rangeParam.Start + count - 1}/{totalEntryCount}"
-                    : $"QuestionTopics {totalEntryCount}/{totalEntryCount}");
-            Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
+            Response.Headers.AddContentRange("QuestionTopics", rangeParam, totalEntryCount, count);
             return topicList;
         }
 

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using api.Controllers.Params;
+using api.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace api.Controllers
 {
@@ -57,20 +59,6 @@ namespace api.Controllers
             return query.Provider.CreateQuery<T>(resultExp); 
         }
 
-        private static IList ConvertTo(this List<string> lst, Type toType)
-        {
-            if (toType == typeof(string)) return lst;
-            if (toType == typeof(bool)) return lst.Select(bool.Parse).ToList();
-            if (toType == typeof(DateTime)) return lst.Select(DateTime.Parse).ToList();
-            if (toType == typeof(int)) return lst.Select(int.Parse).ToList();
-            throw new ArgumentException($"{toType} not supported");
-        }
-
-        public static string AsString(this string b)
-        {
-            return b;
-        }
-
         public static IQueryable<T> OrderBy<T>(this IQueryable<T> query, SortParam param)
             => param == null ? query : query.OrderBy(param.Column, param.Desc);
 
@@ -98,6 +86,14 @@ namespace api.Controllers
             _ => input.First().ToString().ToUpper() + input.Substring(1)
         };
 
+
+        public static void AddContentRange(this IHeaderDictionary dictionary, string resource, RangeParam range, int total, int count)
+        {
+            dictionary.Add("Content-Range",
+                range == null
+                    ? $"{resource.ToTileCase()} {count}/{total}"
+                    : $"{resource.ToTileCase()} {range.Start}-{range.Start + count - 1}/{total}" );
+        }
     }
     
 }

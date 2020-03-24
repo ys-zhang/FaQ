@@ -37,11 +37,7 @@ namespace api.Controllers
             var totalEntryCount = await query.CountAsync();
             var topicList = await query.OrderBy(sortParam).Range(rangeParam).AsNoTracking().ToListAsync();
             var count = topicList.Count;
-            Response.Headers.Add("Content-Range",
-                rangeParam != null
-                    ? $"Questions {rangeParam.Start}-{rangeParam.Start + count - 1}/{totalEntryCount}"
-                    : $"Questions {totalEntryCount}/{totalEntryCount}");
-            Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
+            Response.Headers.AddContentRange("Questions", rangeParam, totalEntryCount, count);
             return topicList;
         }
         
@@ -78,7 +74,7 @@ namespace api.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!QuestionExists(id))
+                if (! await QuestionExists(id))
                 {
                     return NotFound();
                 }
@@ -94,11 +90,10 @@ namespace api.Controllers
         [HttpPost]
         public async Task<ActionResult<Question>> PostQuestion(Question question)
         {
-            // TODO
-            //if (question.Id != 0 && QuestionExists(question.Id))
-            //{
-            //    return BadRequest();
-            //}
+            if (question == null || await QuestionExists(question.Id))
+            {
+                return BadRequest();
+            }
             _context.Questions.Add(question);
             await _context.SaveChangesAsync();
 
@@ -127,9 +122,9 @@ namespace api.Controllers
             .Take(number)
             .ToListAsync();
 
-        private bool QuestionExists(int id)
+        private async Task<bool> QuestionExists(int id)
         {
-            return _context.Questions.Any(e => e.Id == id && !e.Deleted);
+            return await _context.Questions.AnyAsync(e => e.Id == id && !e.Deleted);
         }
     }
 }

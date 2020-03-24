@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
 using api.Models;
 
 namespace api
@@ -27,7 +28,9 @@ namespace api
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllers().AddNewtonsoftJson(options =>
+                    options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+                );
             services.AddDbContext<FaqChatBotDbContext>(opt => opt.UseSqlServer(Configuration.GetConnectionString("Debug")));
             services.AddCors(options =>
             {
@@ -57,6 +60,13 @@ namespace api
             {
                 endpoints.MapControllers();
             });
+
+            app.Use(async (context, next) =>
+            {
+                await next(); 
+                context.Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
+            });
+
         }
     }
 }

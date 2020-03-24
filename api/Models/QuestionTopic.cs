@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
 
 namespace api.Models
 {
@@ -11,8 +12,9 @@ namespace api.Models
         public string Name { get; set; }
         public TitledImage Icon { get; set; }
         public bool Active { get; set; } = false;
+        [JsonIgnore]
         public bool Deleted { get; set; } = false;
-        public DateTime updateTime { get; set; }
+        public DateTime UpdateTime { get; set; }
     }
 
     public class TitledImage
