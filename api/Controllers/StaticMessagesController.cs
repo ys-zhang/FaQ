@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using api.Models;
 using api.Controllers.Params;
 using Microsoft.AspNetCore.Cors;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -66,7 +67,8 @@ namespace api.Controllers
                 .ToListAsync();
             return msg;
         }
-
+        
+        // TODO wait to be tested
         [HttpPut("id")]
         public async Task<ActionResult<Message>> PutMessage(int id, Message message)
         {
@@ -167,10 +169,72 @@ namespace api.Controllers
                 // remove option from this message
                 _context.MessageAndContentRelations.Remove(r);
             }
-            
 
+            _context.Entry(message).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             return message;
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Message>> CreateMessage(Message message)
+        {
+            if (await MessageExists(message.Id)) return BadRequest();
+            foreach (var r in message.ContentRelations)
+            {
+                if (r.MessageContentId == 0)
+                {
+                    _context.MessageContents.Add(r.MessageContent);
+                }
+            }
+
+            foreach (var r in message.OptionRelations)
+            {
+                if (r.MessageOptionId == 0)
+                {
+                    _context.MessageOptions.Add(r.MessageOption);
+                }
+            }
+            await _context.SaveChangesAsync();
+            var optionCache = new Dictionary<int, MessageOption>();
+            foreach (var r in message.OptionRelations)
+            {
+                if (r.MessageOptionId == 0)
+                {
+                    r.MessageOptionId = r.MessageOption.Id;
+                }
+                optionCache[r.MessageOptionId] = r.MessageOption;
+                r.MessageOption = null;
+            }
+            var contentCache = new Dictionary<int, MessageContent>();
+            foreach (var r in message.ContentRelations)
+            {
+                if (r.MessageContentId == 0)
+                {
+                    r.MessageContentId = r.MessageContent.Id;
+                }
+                contentCache[r.MessageContentId] = r.MessageContent;
+                r.MessageContent = null;
+            }
+            _context.Messages.Add(message);
+            await _context.SaveChangesAsync();
+            foreach (var r in message.ContentRelations)
+            {
+                r.MessageId = message.Id;
+                if (r.MessageContent == null)
+                {
+                    r.MessageContent = contentCache[r.MessageContentId];
+                }
+            }
+
+            foreach (var r in message.OptionRelations)
+            {
+                r.MessageId = message.Id;
+                if (r.MessageOption == null)
+                {
+                    r.MessageOption = optionCache[r.MessageOptionId];
+                }
+            }
+            return CreatedAtAction("GetMessage", new { Id = message.Id }, message);
         }
         
         
@@ -246,6 +310,11 @@ namespace api.Controllers
         private async Task<bool> OptionExists(int id)
         {
             return await _context.MessageOptions.AnyAsync(o => o.Id == id);
+        }
+
+        private async Task<bool> MessageExists(int id)
+        {
+            return await _context.Messages.AnyAsync(m => m.Id == id);
         }
     }
 }
