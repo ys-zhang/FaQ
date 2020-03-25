@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using api.Models;
 using api.Controllers.Params;
 using Microsoft.AspNetCore.Cors;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -69,109 +67,111 @@ namespace api.Controllers
         }
         
         // TODO wait to be tested
-        [HttpPut("id")]
+        [HttpPut("{id}")]
         public async Task<ActionResult<Message>> PutMessage(int id, Message message)
         {
             if (message.Id != id) return BadRequest();
+            // _logger.LogInformation(message.Options.ToString());
+            _logger.LogInformation($"OptionCount: {message.Options.Count}");
+            _logger.LogInformation($"ContentCount: {message.Contents.Count}");
             var optionRelations = await _context.MessageAndOptionRelations
-                .Include(r => r.MessageOption)
+                //.Include(r => r.MessageOption)
                 .Where(r => r.MessageId == id)
-                .OrderBy(r => r.MessageOptionId)
+                // .OrderBy(r => r.MessageOptionId)
                 .ToListAsync();
             var contentRelations = await _context.MessageAndContentRelations
-                .Include(r => r.MessageContent)
+                //.Include(r => r.MessageContent)
                 .Where(r => r.MessageId == id)
-                .OrderBy(r => r.MessageContentId)
+                // .OrderBy(r => r.MessageContentId)
                 .ToListAsync();
             
-            // update Options related to this message
+            // insert new options and contents
+            foreach (var option in message.Options.Where(o => o.Id == 0))
+            {
+                _context.MessageOptions.Add(option);
+            }
+            foreach (var content in message.Contents.Where(c => c.Id == 0))
+            {
+                _context.MessageContents.Add(content);
+            }
+            await _context.SaveChangesAsync();
+            
+            
             var optionDict = optionRelations.ToDictionary(r => r.MessageOptionId);
+            var contentDict = contentRelations.ToDictionary(r => r.MessageContentId);
+            var optionCache = new Dictionary<int, MessageOption>();
+            var contentCache = new Dictionary<int, MessageContent>();
+            
+            // update Options related to this message
             foreach (var r in message.OptionRelations)
             {
                 if (r.MessageId != id) return BadRequest();
                 if (r.MessageOptionId == 0)
                 {
-                    // option is not created
-                    if (r.MessageOption == null || r.MessageOption.Id > 0) return BadRequest("Expecting an option ...");
-                    _context.MessageOptions.Add(r.MessageOption);
-                    await _context.SaveChangesAsync();
-                    if (r.MessageOption.Id == 0)
-                    {
-                        _logger.LogError("New option created but id is not updated");
-                        return BadRequest();
-                    }
                     r.MessageOptionId = r.MessageOption.Id;
                 }
-
-                if (!optionDict.ContainsKey(r.MessageOptionId))
+                _logger.LogInformation($"Option in relation: {r.MessageOption.Id}");
+                if (optionDict.ContainsKey(r.MessageOptionId))
                 {
-                    // create new relation
-                    _context.MessageAndOptionRelations.Add(r);
+                    // update old option should through PUT /StaticMessages/Options/{id}
+                    optionDict.Remove(r.MessageOptionId);  // what remains in this dict should removed from the db
                 }
                 else
                 {
-                    var old = optionDict[r.MessageOptionId].MessageOption;
-                    if (!old.Equals(r.MessageOption))
-                    {
-                        // Option changed
-                        _context.Entry(r.MessageOption).State = EntityState.Modified;
-                    }
-
-                    optionDict.Remove(r.MessageOptionId);
+                    // create new relation
+                    optionCache[r.MessageOptionId] = r.MessageOption;
+                    r.MessageOption = null; // prevent entity framework insert entities already exists
+                    r.Message = null;
+                    _context.MessageAndOptionRelations.Add(r);
                 }
-            }
-
-            foreach (var r in optionDict.Values)
-            {
-                // remove option from this message
-                _context.MessageAndOptionRelations.Remove(r);
             }
             
             // update contents related to this message
-            var contentDict = contentRelations.ToDictionary(r => r.MessageContentId);
             foreach (var r in message.ContentRelations)
             {
                 if (r.MessageId != id) return BadRequest();
                 if (r.MessageContentId == 0)
                 {
                     // content is not created
-                    if (r.MessageContent == null || r.MessageContent.Id > 0) return BadRequest("Expecting an content ...");
-                    _context.MessageContents.Add(r.MessageContent);
-                    await _context.SaveChangesAsync();
-                    if (r.MessageContent.Id == 0)
-                    {
-                        _logger.LogError("New content created but id is not updated");
-                        return BadRequest();
-                    }
                     r.MessageContentId = r.MessageContent.Id;
                 }
-
-                if (!optionDict.ContainsKey(r.MessageContentId))
+                if (contentDict.ContainsKey(r.MessageContentId))
                 {
-                    // create new relation
-                    _context.MessageAndContentRelations.Add(r);
+                    contentDict.Remove(r.MessageContentId);
                 }
                 else
                 {
-                    var old = contentDict[r.MessageContentId].MessageContent;
-                    if (!old.Equals(r.MessageContent))
-                    {
-                        // Option changed
-                        _context.Entry(r.MessageContent).State = EntityState.Modified;
-                    }
-
-                    optionDict.Remove(r.MessageContentId);
+                    contentCache[r.MessageContentId] = r.MessageContent;
+                    r.MessageContent = null; // prevent entity framework insert entities already exists
+                    r.Message = null; 
+                    _context.MessageAndContentRelations.Add(r);
                 }
             }
-
+            
+            foreach (var r in optionDict.Values)
+            {
+                // remove option from this message
+                _context.MessageAndOptionRelations.Remove(r);
+            }
+            
             foreach (var r in contentDict.Values)
             {
                 // remove option from this message
                 _context.MessageAndContentRelations.Remove(r);
             }
 
-            _context.Entry(message).State = EntityState.Modified;
+            var oldMessage = await _context.Messages.FindAsync(message.Id);
+            oldMessage.AnswerType = message.AnswerType;
             await _context.SaveChangesAsync();
+            foreach (var r in message.OptionRelations.Where(r => r.MessageOption == null))
+            {
+                r.MessageOption = optionCache[r.MessageOptionId];
+            }
+            foreach (var r in message.ContentRelations.Where(r => r.MessageContent == null))
+            {
+                r.MessageContent = contentCache[r.MessageContentId];
+            }
+            
             return message;
         }
 
@@ -181,6 +181,7 @@ namespace api.Controllers
             if (await MessageExists(message.Id)) return BadRequest();
             foreach (var r in message.ContentRelations)
             {
+                // add new content to context tracking store, waited to be written to db
                 if (r.MessageContentId == 0)
                 {
                     _context.MessageContents.Add(r.MessageContent);
@@ -189,13 +190,18 @@ namespace api.Controllers
 
             foreach (var r in message.OptionRelations)
             {
+                // add new option to context tracking store, waited to be written to db
                 if (r.MessageOptionId == 0)
                 {
                     _context.MessageOptions.Add(r.MessageOption);
                 }
             }
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // write new Contents and Options to db
+            
+            // remove Option and Content objects from relations 
+            // to avoid second time insertion of existing Option and Content entities
             var optionCache = new Dictionary<int, MessageOption>();
+            var contentCache = new Dictionary<int, MessageContent>();
             foreach (var r in message.OptionRelations)
             {
                 if (r.MessageOptionId == 0)
@@ -205,7 +211,6 @@ namespace api.Controllers
                 optionCache[r.MessageOptionId] = r.MessageOption;
                 r.MessageOption = null;
             }
-            var contentCache = new Dictionary<int, MessageContent>();
             foreach (var r in message.ContentRelations)
             {
                 if (r.MessageContentId == 0)
@@ -215,8 +220,13 @@ namespace api.Controllers
                 contentCache[r.MessageContentId] = r.MessageContent;
                 r.MessageContent = null;
             }
+            
             _context.Messages.Add(message);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();  // write message to db
+            
+            // restore Content and Option objects in relations
+            // for return, if not old Contents and Options will be null 
+            // in the returned Json.
             foreach (var r in message.ContentRelations)
             {
                 r.MessageId = message.Id;
@@ -234,7 +244,18 @@ namespace api.Controllers
                     r.MessageOption = optionCache[r.MessageOptionId];
                 }
             }
+            
             return CreatedAtAction("GetMessage", new { Id = message.Id }, message);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<Message>> DeleteMessage(int id)
+        {
+            var message = await Messages.FirstAsync(m => m.Id == id);
+            if (message == null) return NotFound();
+            _context.Messages.Remove(message);
+            await _context.SaveChangesAsync();
+            return message;
         }
         
         
