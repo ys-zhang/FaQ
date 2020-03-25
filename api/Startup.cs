@@ -61,11 +61,11 @@ namespace api
                 endpoints.MapControllers();
             });
 
-            app.Use(async (context, next) =>
-            {
-                await next(); 
-                context.Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
-            });
+            // app.Use(async (context, next) =>
+            // {
+            //     context.Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
+            //     await next();
+            // });
 
         }
     }

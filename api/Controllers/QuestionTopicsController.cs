@@ -37,6 +37,7 @@ namespace api.Controllers
             var topicList = await query.AsNoTracking().ToListAsync();
             var count = topicList.Count;
             Response.Headers.AddContentRange("QuestionTopics", rangeParam, totalEntryCount, count);
+            Response.Headers.Add("Access-Control-Expose-Headers", "Content-Range");
             return topicList;
         }
 
@@ -60,13 +61,13 @@ namespace api.Controllers
         // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see https://aka.ms/RazorPagesCRUD.
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutQuestionTopic(int id, QuestionTopic questionTopic)
+        public async Task<ActionResult<QuestionTopic>> PutQuestionTopic(int id, QuestionTopic questionTopic)
         {
             if (id != questionTopic.Id)
             {
                 return BadRequest();
             }
-
+            questionTopic.UpdateTime = DateTime.Now;
             _context.Entry(questionTopic).State = EntityState.Modified;
 
             try
@@ -83,7 +84,7 @@ namespace api.Controllers
                 throw;
             }
 
-            return NoContent();
+            return questionTopic;
         }
 
         // POST: api/QuestionTopics
@@ -96,6 +97,7 @@ namespace api.Controllers
             {
                 return BadRequest();
             }
+            questionTopic.UpdateTime = DateTime.Now;
             _context.QuestionTopics.Add(questionTopic);
             await _context.SaveChangesAsync();
 
@@ -111,7 +113,9 @@ namespace api.Controllers
             {
                 return NotFound();
             }
+
             questionTopic.Deleted = true;
+            questionTopic.UpdateTime = DateTime.Now;
             await _context.SaveChangesAsync();
             return questionTopic;
         }
