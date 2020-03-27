@@ -12,6 +12,9 @@ namespace api.Models
     {
         [Key] 
         public int Id { get; set; }
+
+        public string Description { get; set; }
+        
         [JsonConverter(typeof(StringEnumConverter))]
         public AnswerType AnswerType { get; set; }
         

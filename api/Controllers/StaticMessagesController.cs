@@ -8,6 +8,7 @@ using api.Controllers.Params;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
 
 
 namespace api.Controllers
@@ -162,6 +163,7 @@ namespace api.Controllers
 
             var oldMessage = await _context.Messages.FindAsync(message.Id);
             oldMessage.AnswerType = message.AnswerType;
+            oldMessage.Description = message.Description;
             await _context.SaveChangesAsync();
             foreach (var r in message.OptionRelations.Where(r => r.MessageOption == null))
             {
