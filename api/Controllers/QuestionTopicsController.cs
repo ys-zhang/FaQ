@@ -129,7 +129,7 @@ namespace api.Controllers
                 return NotFound(); // topic not found
             }
             return await _context.Questions
-                .TakeWhile(q => q.QuestionTopicId == topicId && !q.Deleted)
+                .Where(q => q.QuestionTopicId == topicId && !q.Deleted)
                 .OrderBy(q => q.Rank)
                 .Take(number)
                 .ToListAsync();

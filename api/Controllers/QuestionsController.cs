@@ -119,7 +119,7 @@ namespace api.Controllers
         [HttpGet("top/{number:int}")]
         public async Task<List<Question>> TopQuestions(int number) 
             => await _context.Questions
-            .TakeWhile(t => !t.Deleted)
+            .Where(t => !t.Deleted)
             .OrderBy(q => q.Rank)
             .Take(number)
             .ToListAsync();
