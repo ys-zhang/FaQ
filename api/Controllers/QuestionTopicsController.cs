@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using api.Controllers.AuthUtil;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Models;
@@ -12,15 +12,17 @@ namespace api.Controllers
 {
     [Route("faq/[controller]")]
     [ApiController]
-    public class QuestionTopicsController : ControllerBase
+    public class QuestionTopicsController : Controller
     {
         private readonly FaqChatBotDbContext _context;
+        private readonly JwtDecoder _jwtDecoder;
 
-        public QuestionTopicsController(FaqChatBotDbContext context)
+        public QuestionTopicsController(FaqChatBotDbContext context, JwtDecoder jwtDecoder)
         {
             _context = context;
+            _jwtDecoder = jwtDecoder;
         }
-
+        
         // GET: api/QuestionTopics
         [HttpGet]
         public async Task<ActionResult<IEnumerable<QuestionTopic>>> GetQuestionTopics(
@@ -63,6 +65,7 @@ namespace api.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<QuestionTopic>> PutQuestionTopic(int id, QuestionTopic questionTopic)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (id != questionTopic.Id)
             {
                 return BadRequest();
@@ -93,6 +96,7 @@ namespace api.Controllers
         [HttpPost]
         public async Task<ActionResult<QuestionTopic>> PostQuestionTopic( QuestionTopic questionTopic)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (QuestionTopicExists(questionTopic.Id))
             {
                 return BadRequest();
@@ -108,6 +112,7 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<QuestionTopic>> DeleteQuestionTopic(int id)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             var questionTopic = await _context.QuestionTopics.FindAsync(id);
             if (questionTopic == null || questionTopic.Deleted)
             {
@@ -129,7 +134,7 @@ namespace api.Controllers
                 return NotFound(); // topic not found
             }
             return await _context.Questions
-                .TakeWhile(q => q.QuestionTopicId == topicId && !q.Deleted)
+                .Where(q => q.QuestionTopicId == topicId && !q.Deleted)
                 .OrderBy(q => q.Rank)
                 .Take(number)
                 .ToListAsync();
@@ -140,6 +145,14 @@ namespace api.Controllers
         {
             var topic = _context.QuestionTopics.Find(id);
             return topic != null && !topic.Deleted;
+        }
+        
+        private bool AuthenticateEditor()
+        {
+            if (!_jwtDecoder.Verify(Request)) return false;
+            var payload = JwtDecoder.ParsePayload(Request);
+            if (payload.Roles.Contains(AdminUserRole.Admin)) return true;
+            return false;
         }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using api.Controllers.AuthUtil;
 using Microsoft.AspNetCore.Mvc;
 using api.Models;
 using api.Controllers.Params;
@@ -20,6 +21,7 @@ namespace api.Controllers
     {
         private readonly FaqChatBotDbContext _context;
         private readonly ILogger<StaticMessagesController> _logger;
+        private readonly JwtDecoder _jwtDecoder;
 
         private IQueryable<Message> Messages => _context.Messages
             .Include(msg => msg.ContentRelations)
@@ -27,10 +29,11 @@ namespace api.Controllers
             .Include(msg => msg.OptionRelations)
             .ThenInclude(r => r.MessageOption); 
 
-        public StaticMessagesController(FaqChatBotDbContext context, ILogger<StaticMessagesController> logger)
+        public StaticMessagesController(FaqChatBotDbContext context, ILogger<StaticMessagesController> logger, JwtDecoder jwtDecoder)
         {
             _context = context;
             _logger = logger;
+            _jwtDecoder = jwtDecoder;
         }
 
         [HttpGet]
@@ -71,6 +74,7 @@ namespace api.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<Message>> PutMessage(int id, Message message)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (message.Id != id) return BadRequest();
             // _logger.LogInformation(message.Options.ToString());
             _logger.LogInformation($"OptionCount: {message.Options.Count}");
@@ -180,6 +184,7 @@ namespace api.Controllers
         [HttpPost]
         public async Task<ActionResult<Message>> CreateMessage(Message message)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (await MessageExists(message.Id)) return BadRequest();
             foreach (var r in message.ContentRelations)
             {
@@ -253,6 +258,7 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<Message>> DeleteMessage(int id)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             var message = await Messages.FirstAsync(m => m.Id == id);
             if (message == null) return NotFound();
             _context.Messages.Remove(message);
@@ -289,6 +295,7 @@ namespace api.Controllers
         [HttpPost("options")]
         public async Task<ActionResult<MessageOption>> CreateOption(MessageOption option)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (option == null || await OptionExists(option.Id))
             {
                 return BadRequest();
@@ -302,6 +309,7 @@ namespace api.Controllers
         [HttpPut("options/{id}")]
         public async Task<ActionResult<MessageOption>> UpdateOption(int id, MessageOption option)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (id != option.Id) return BadRequest();
             _context.Entry(option).State = EntityState.Modified;
             try
@@ -323,6 +331,7 @@ namespace api.Controllers
         [HttpDelete("options/{id}")]
         public async Task<ActionResult<MessageOption>> DeleteOption(int id)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             var option = await _context.MessageOptions.FindAsync(id);
             if (option == null) return NotFound();
             _context.MessageOptions.Remove(option);
@@ -338,6 +347,14 @@ namespace api.Controllers
         private async Task<bool> MessageExists(int id)
         {
             return await _context.Messages.AnyAsync(m => m.Id == id);
+        }
+        
+        private bool AuthenticateEditor()
+        {
+            if (!_jwtDecoder.Verify(Request)) return false;
+            var payload = JwtDecoder.ParsePayload(Request);
+            if (payload.Roles.Contains(AdminUserRole.Admin)) return true;
+            return false;
         }
     }
 }

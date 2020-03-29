@@ -9,6 +9,7 @@ using api.Models;
 using Microsoft.AspNetCore.Cors;
 using api.Controllers.Params;
 using System.Data.SqlClient;
+using api.Controllers.AuthUtil;
 
 namespace api.Controllers
 {
@@ -18,10 +19,12 @@ namespace api.Controllers
     public class QuestionsController : ControllerBase
     {
         private readonly FaqChatBotDbContext _context;
+        private readonly JwtDecoder _jwtDecoder;
 
-        public QuestionsController(FaqChatBotDbContext context)
+        public QuestionsController(FaqChatBotDbContext context, JwtDecoder jwtDecoder)
         {
             _context = context;
+            _jwtDecoder = jwtDecoder;
         }
 
         // GET: api/Questions
@@ -62,6 +65,7 @@ namespace api.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<Question>> PutQuestion(int id, Question question)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (id != question.Id)
             {
                 return BadRequest();
@@ -91,6 +95,7 @@ namespace api.Controllers
         [HttpPost]
         public async Task<ActionResult<Question>> PostQuestion(Question question)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             if (question == null || await QuestionExists(question.Id))
             {
                 return BadRequest();
@@ -105,6 +110,7 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<Question>> DeleteQuestion(int id)
         {
+            if (!AuthenticateEditor()) return Unauthorized("Sorry you don't have the permission to create or edit is resource");
             var question = await _context.Questions.FindAsync(id);
             if (question == null || question.Deleted)
             {
@@ -119,7 +125,7 @@ namespace api.Controllers
         [HttpGet("top/{number:int}")]
         public async Task<List<Question>> TopQuestions(int number) 
             => await _context.Questions
-            .TakeWhile(t => !t.Deleted)
+            .Where(t => !t.Deleted)
             .OrderBy(q => q.Rank)
             .Take(number)
             .ToListAsync();
@@ -127,6 +133,14 @@ namespace api.Controllers
         private async Task<bool> QuestionExists(int id)
         {
             return await _context.Questions.AnyAsync(e => e.Id == id && !e.Deleted);
+        }
+
+        private bool AuthenticateEditor()
+        {
+            if (!_jwtDecoder.Verify(Request)) return false;
+            var payload = JwtDecoder.ParsePayload(Request);
+            if (payload.Roles.Contains(AdminUserRole.Admin)) return true;
+            return false;
         }
     }
 }
