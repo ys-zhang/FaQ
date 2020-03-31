@@ -15,11 +15,18 @@ namespace api.Controllers
     {
         private readonly JwtEncoder _jwtEncoder;
 
-        private static readonly AdminUser TestUser = new AdminUser
+        private static readonly AdminUser TestAdminUser = new AdminUser
         {
             Username = "admin",
             Password = "password",
             Roles = new List<AdminUserRole> { AdminUserRole.Admin }
+        };
+        
+        private static readonly AdminUser TestReadonlyUser = new AdminUser
+        {
+            Username = "readonly",
+            Password = "password",
+            Roles = new List<AdminUserRole> { AdminUserRole.Readonly }
         };
         
         public LoginController(JwtEncoder jwtEncoder)
@@ -38,16 +45,26 @@ namespace api.Controllers
         [HttpPost]
         public ActionResult<LoginResponse> Index([FromForm] string username, [FromForm] string password)
         {
-            if (username == TestUser.Username && password == TestUser.Password)
+            if (username == TestAdminUser.Username && password == TestAdminUser.Password)
             {
-                var token = _jwtEncoder.CreateToken(TestUser);
+                var token = _jwtEncoder.CreateToken(TestAdminUser);
                 return new LoginResponse
                 {
                     Username = username,
                     AuthToken = token,
-                    Roles = TestUser.Roles
+                    Roles = TestAdminUser.Roles
                 };
-            }
+            } 
+            if (username == TestReadonlyUser.Username && password == TestReadonlyUser.Password)
+            {
+                var token = _jwtEncoder.CreateToken(TestReadonlyUser);
+                return new LoginResponse
+                {
+                    Username = username,
+                    AuthToken = token,
+                    Roles = TestReadonlyUser.Roles
+                };
+            }  
             return NotFound($"User {username} not exits or wrong password");
         }
     }

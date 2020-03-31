@@ -353,6 +353,7 @@ namespace api.Controllers
         {
             if (!_jwtDecoder.Verify(Request)) return false;
             var payload = JwtDecoder.ParsePayload(Request);
+            if (payload.Expiration < DateTime.Now) return false;
             if (payload.Roles.Contains(AdminUserRole.Admin)) return true;
             return false;
         }
