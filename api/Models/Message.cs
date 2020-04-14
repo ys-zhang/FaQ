@@ -17,44 +17,13 @@ namespace api.Models
         
         [JsonConverter(typeof(StringEnumConverter))]
         public AnswerType AnswerType { get; set; }
-        
-        [NotMapped]
-        public List<MessageContent> Contents
-        {
-            get => ContentRelations?.Select(r => r.MessageContent).ToList();
-            set
-            {
-                ContentRelations = value?.Select(content => new MessageAndContentRelation
-                {
-                    MessageId = Id,
-                    Message = this,
-                    MessageContentId = content.Id,
-                    MessageContent = content
-                }).ToList();
-            }
-            
-        }
-        
-        [NotMapped]
-        public List<MessageOption> Options
-        {
-            get => OptionRelations?.Select(r => r.MessageOption).ToList();
-            set
-            {
-                OptionRelations = value?.Select(option => new MessageAndOptionRelation
-                {
-                    MessageId = Id,
-                    Message = this,
-                    MessageOptionId = option.Id,
-                    MessageOption = option
-                }).ToList();
-            }
-        }
 
-        [JsonIgnore]
-        public IList<MessageAndContentRelation> ContentRelations { get; set; }
-        [JsonIgnore]
-        public IList<MessageAndOptionRelation> OptionRelations { get; set; }
+        [InverseProperty("Message")]
+        public List<MessageContent> MessageContents { get; set; }
+
+        [InverseProperty("Message")]
+        public List<MessageOption> MessageOptions { get; set; }
+
     }
 
     /// <summary>

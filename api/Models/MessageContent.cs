@@ -13,11 +13,8 @@ namespace api.Models
         [JsonConverter(typeof(StringEnumConverter))]
         public MessageContentType Type { get; set; }
         public string Value { get; set; }
-        [JsonIgnore]
-        public IEnumerable<MessageAndContentRelation> Relations { get; set; }
-        [JsonIgnore]
-        public List<Message> RelatedMessages
-            => Relations.Select(r => r.Message).ToList();
+        public int MessageId { get; set; }
+        public Message Message { get; set; }
     }
     
     public enum MessageContentType
