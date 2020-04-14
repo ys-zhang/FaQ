@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace api.Models
 {
-    public class QuestionTopic: Updatable
+    public class QuestionTopic: IUpdatable
     {
         [Key]
         public int Id { get; set; }

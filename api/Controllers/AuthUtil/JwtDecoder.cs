@@ -20,6 +20,9 @@ namespace api.Controllers.AuthUtil
         
         public bool Verify(string token)
         {
+            string[] tmp = token.Split(" ");
+            if (tmp.Length != 2 || tmp[0] != "Bearer") return false;
+            token = tmp[1];
             string[] jwtSegments = token.Split(".");
             if (jwtSegments.Length != 3) return false;
             string header = jwtSegments[0];

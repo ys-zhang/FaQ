@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace api.Models
 {
-    public interface Updatable
+    public interface IUpdatable
     {
         // if deleted from the admin
         [JsonIgnore]
@@ -15,7 +15,7 @@ namespace api.Models
         public DateTime UpdateTime { get; set; }
         public bool Active { get; set; }
     }
-    public class Question : Updatable
+    public class Question : IUpdatable
     {
         [Key]
         public int Id { get; set; }
